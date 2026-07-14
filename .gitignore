@@ -1,0 +1,22 @@
+# Node/Web environments
+node_modules/
+UI-APP/node_modules/
+
+# Electron build outputs (These contain the massive 148MB binaries)
+out/
+release/
+UI-APP/out/
+UI-APP/release/
+dist/
+UI-APP/dist/
+
+# Python environments & caches
+env/
+venv/
+.env
+__pycache__/
+*.pyc
+catprinter/__pycache__/
+
+# OS Files
+.DS_Store
