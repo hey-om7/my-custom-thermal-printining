@@ -62,7 +62,7 @@ export function Settings({ onBack, onDeviceReset }: Props) {
     <div className="h-screen w-screen flex flex-col bg-background">
       {/* Header */}
       <header
-        className="h-12 border-b flex items-center gap-3 px-4 shrink-0"
+        className="h-12 border-b flex items-center gap-3 px-4 shrink-0 draggable-region"
         style={{ paddingLeft: '88px' }}
       >
         <button

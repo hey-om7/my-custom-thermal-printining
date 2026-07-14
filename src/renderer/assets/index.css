@@ -69,3 +69,17 @@
   background-image: radial-gradient(circle, hsl(240 5% 18%) 1px, transparent 1px);
   background-size: 20px 20px;
 }
+
+/* Window drag region for frameless titlebar */
+.draggable-region {
+  -webkit-app-region: drag;
+}
+
+.draggable-region button,
+.draggable-region a,
+.draggable-region input,
+.draggable-region select,
+.draggable-region textarea,
+.draggable-region [role="button"] {
+  -webkit-app-region: no-drag;
+}

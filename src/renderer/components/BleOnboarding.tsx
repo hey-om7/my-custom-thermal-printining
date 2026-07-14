@@ -72,7 +72,9 @@ export function BleOnboarding({ onComplete }: Props) {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background">
+    <div className="h-screen w-screen flex items-center justify-center bg-background relative">
+      {/* Drag region for window movement */}
+      <div className="absolute top-0 left-0 right-0 h-12 draggable-region" />
       <div className="w-[520px] rounded-xl border bg-card p-8 shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 mb-2">

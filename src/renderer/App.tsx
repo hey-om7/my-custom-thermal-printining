@@ -213,7 +213,7 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col select-none">
       {/* Top bar */}
-      <header className="h-12 border-b flex items-center justify-between pr-4 shrink-0" style={{ paddingLeft: '88px' }}>
+      <header className="h-12 border-b flex items-center justify-between pr-4 shrink-0 draggable-region" style={{ paddingLeft: '88px' }}>
         <div className="flex items-center gap-2">
           <button
             onClick={() => guardedAction(store.goHome)}

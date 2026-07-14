@@ -23,7 +23,9 @@ export function StartupModal({ onConfirm }: Props) {
   const heightPx = mmToPx(heightMM)
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background">
+    <div className="h-screen w-screen flex items-center justify-center bg-background relative">
+      {/* Drag region for window movement */}
+      <div className="absolute top-0 left-0 right-0 h-12 draggable-region" />
       <div className="w-[460px] rounded-xl border bg-card p-8 shadow-2xl">
         <h2 className="text-xl font-bold mb-1">Create New Label</h2>
         <p className="text-sm text-muted-foreground mb-6">

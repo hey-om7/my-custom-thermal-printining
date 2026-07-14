@@ -13,7 +13,7 @@ export function Homepage({ sketches, onNewSketch, onLoadSketch, onDeleteSketch, 
   return (
     <div className="h-screen w-screen flex flex-col bg-background">
       {/* Header with safe traffic light spacing */}
-      <header className="h-14 border-b flex items-center justify-between px-4 shrink-0" style={{ paddingLeft: '88px' }}>
+      <header className="h-14 border-b flex items-center justify-between px-4 shrink-0 draggable-region" style={{ paddingLeft: '88px' }}>
         <h1 className="text-base font-bold tracking-tight">Label Designer</h1>
         <button
           onClick={onOpenSettings}
