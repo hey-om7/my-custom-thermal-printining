@@ -2,37 +2,20 @@
  * Image preparation for MXW01 thermal printer.
  *
  * Pipeline: PNG buffer → grayscale → resize to 384px wide (keep height) →
- *           clamp near-white → Floyd-Steinberg dither → 1bpp bit-pack
+ *           threshold → 1bpp bit-pack
+ *
+ * Preview pipeline: PNG buffer → grayscale → resize → blur for smooth edges →
+ *                   output as grayscale PNG (no dithering, no 1bpp)
  */
 import sharp from 'sharp'
 import { PRINT_WIDTH, BYTES_PER_LINE, MIN_DATA_BYTES } from './mxw01'
 
-// --- Floyd-Steinberg dithering (in-place on grayscale buffer) ---------------
-function floydSteinbergDither(pixels: Uint8Array, w: number, h: number): void {
-  function clamp(v: number): number {
-    return v < 0 ? 0 : v > 255 ? 255 : v
-  }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = y * w + x
-      const old = pixels[idx]
-      const val = old > 127 ? 255 : 0
-      pixels[idx] = val
-      const err = old - val
-      if (x + 1 < w) pixels[idx + 1] = clamp(pixels[idx + 1] + (err * 7) / 16)
-      if (y + 1 < h) {
-        if (x - 1 >= 0) pixels[(y + 1) * w + x - 1] = clamp(pixels[(y + 1) * w + x - 1] + (err * 3) / 16)
-        pixels[(y + 1) * w + x] = clamp(pixels[(y + 1) * w + x] + (err * 5) / 16)
-        if (x + 1 < w) pixels[(y + 1) * w + x + 1] = clamp(pixels[(y + 1) * w + x + 1] + (err * 1) / 16)
-      }
-    }
-  }
-}
-
-// --- Near-white clamp (eliminate anti-aliased background noise) -------------
-function clampNearWhite(pixels: Uint8Array, cutoff = 235): void {
+// --- Simple threshold (in-place on grayscale buffer) ------------------------
+// Converts each pixel to pure black or white. threshold value controls the
+// cutoff — pixels darker than this become black, lighter become white.
+function applyThreshold(pixels: Uint8Array, threshold = 128): void {
   for (let i = 0; i < pixels.length; i++) {
-    if (pixels[i] >= cutoff) pixels[i] = 255
+    pixels[i] = pixels[i] < threshold ? 0 : 255
   }
 }
 
@@ -45,7 +28,7 @@ function packBits(pixels: Uint8Array, w: number, h: number): Uint8Array {
       let byte = 0
       for (let bit = 0; bit < 8; bit++) {
         const px = pixels[y * w + byteIdx * 8 + bit]
-        // After dithering, 0 = black (ink), 255 = white. Protocol wants black=1.
+        // After threshold, 0 = black (ink), 255 = white. Protocol wants black=1.
         if (px === 0) byte |= 1 << bit
       }
       out[y * bytesPerRow + byteIdx] = byte
@@ -54,7 +37,9 @@ function packBits(pixels: Uint8Array, w: number, h: number): Uint8Array {
   return out
 }
 
-// --- Generate a preview PNG (exact processed image before 1bpp packing) -----
+// --- Generate a preview PNG -------------------------------------------------
+// Shows the image as it will look when printed: grayscale with soft edges,
+// giving a realistic representation without harsh dither artifacts.
 export interface PreviewOptions {
   topTrim?: number
   feedTrim?: number
@@ -70,6 +55,7 @@ export async function generatePreviewPNG(
   const meta = await sharp(pngBuffer).metadata()
   const origH = meta.height!
 
+  // Resize to print width, keep grayscale with natural anti-aliasing
   const grayscale = await sharp(pngBuffer)
     .grayscale()
     .resize(PRINT_WIDTH, origH, { fit: 'fill' })
@@ -88,12 +74,6 @@ export async function generatePreviewPNG(
     pixels = shifted
   }
 
-  // Clamp near-white
-  clampNearWhite(pixels)
-
-  // Floyd-Steinberg dither
-  floydSteinbergDither(pixels, w, h)
-
   // Add gap lines
   if (gapLines > 0) {
     const expanded = new Uint8Array(w * (h + gapLines))
@@ -109,13 +89,14 @@ export async function generatePreviewPNG(
     pixels = pixels.subarray(0, w * h)
   }
 
-  // Convert the processed grayscale pixels back to a PNG for display
+  // Output as grayscale PNG — no dithering, preserves smooth edges
+  // This represents what the print will look like at normal viewing distance
   return sharp(Buffer.from(pixels), { raw: { width: w, height: h, channels: 1 } })
     .png()
     .toBuffer()
 }
 
-// --- Main image preparation -------------------------------------------------
+// --- Main image preparation (for actual printing) ---------------------------
 export interface PrepareOptions {
   topTrim?: number   // lines to shift content up
   feedTrim?: number  // lines to trim from bottom
@@ -128,13 +109,15 @@ export async function prepareImageBuffer(
 ): Promise<{ data: Buffer; lineCount: number }> {
   const { topTrim = 0, feedTrim = 0, gapLines = 0 } = opts
 
-  // 1. Load image, get original height, resize width to 384 (keep height exact)
+  // 1. Load image, resize width to 384, apply slight blur to smooth edges
+  //    before the hard threshold. This prevents jagged staircase artifacts.
   const meta = await sharp(pngBuffer).metadata()
   const origH = meta.height!
 
   const grayscale = await sharp(pngBuffer)
     .grayscale()
     .resize(PRINT_WIDTH, origH, { fit: 'fill' })
+    .blur(0.6) // smooth edges slightly before threshold
     .raw()
     .toBuffer()
 
@@ -145,37 +128,33 @@ export async function prepareImageBuffer(
   // 2. Shift content UP (top trim): remove top lines, pad bottom
   if (topTrim > 0 && h > topTrim) {
     const shifted = new Uint8Array(w * h)
-    shifted.set(pixels.subarray(topTrim * w)) // copies from row topTrim onward
-    // Bottom rows are already 0 (white = 0 in grayscale? No - 255 is white)
-    shifted.fill(255, (h - topTrim) * w) // white padding at bottom
+    shifted.set(pixels.subarray(topTrim * w))
+    shifted.fill(255, (h - topTrim) * w)
     pixels = shifted
   }
 
-  // 3. Clamp near-white to pure white before dithering
-  clampNearWhite(pixels)
+  // 3. Simple threshold — clean black/white with no dither noise
+  applyThreshold(pixels, 128)
 
-  // 4. Floyd-Steinberg dither
-  floydSteinbergDither(pixels, w, h)
-
-  // 5. Add gap lines (blank / white = all 0 after bit-pack = no ink)
+  // 4. Add gap lines (blank / white = all 0 after bit-pack = no ink)
   if (gapLines > 0) {
     const expanded = new Uint8Array(w * (h + gapLines))
-    expanded.fill(255) // white
+    expanded.fill(255)
     expanded.set(pixels)
     pixels = expanded
     h += gapLines
   }
 
-  // 6. Trim bottom for feed compensation
+  // 5. Trim bottom for feed compensation
   if (feedTrim > 0 && h > feedTrim) {
     h -= feedTrim
     pixels = pixels.subarray(0, w * h)
   }
 
-  // 7. Pack into 1bpp
+  // 6. Pack into 1bpp
   const packed = packBits(pixels, w, h)
 
-  // 8. Pad to minimum
+  // 7. Pad to minimum
   let data: Buffer
   let lineCount = h
   if (packed.length < MIN_DATA_BYTES) {
