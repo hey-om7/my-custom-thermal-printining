@@ -249,6 +249,36 @@ ipcMain.handle('clear-device-settings', async () => {
   return { success: true }
 })
 
+// IPC: Print preview — generates the exact processed image as a displayable PNG
+ipcMain.handle(
+  'preview-print-image',
+  async (_event, base64PNG: string, options?: { gapLines?: number }) => {
+    try {
+      const { generatePreviewPNG } = await import('./printer/image')
+
+      const settings = loadDeviceSettings()
+      if (!settings) {
+        return { success: false, error: 'No printer configured. Please set up your device in Settings.' }
+      }
+
+      const base64Data = base64PNG.replace(/^data:image\/png;base64,/, '')
+      const pngBuffer = Buffer.from(base64Data, 'base64')
+
+      const previewBuffer = await generatePreviewPNG(pngBuffer, {
+        topTrim: settings.topTrim,
+        feedTrim: settings.feedTrim,
+        gapLines: Math.round(options?.gapLines ?? 0)
+      })
+
+      const previewDataURL = `data:image/png;base64,${previewBuffer.toString('base64')}`
+      return { success: true, dataURL: previewDataURL }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { success: false, error: msg }
+    }
+  }
+)
+
 // IPC: Print handler — fully native Node.js (no Python dependency)
 ipcMain.handle('print-label', async (_event, base64PNG: string, options?: { gapLines?: number }) => {
   try {

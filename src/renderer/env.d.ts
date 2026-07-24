@@ -17,6 +17,7 @@ interface DeviceSettings {
 
 interface ElectronAPI {
   printLabel: (base64PNG: string, options?: { gapLines?: number }) => Promise<{ success: boolean; error?: string }>
+  previewPrintImage: (base64PNG: string, options?: { gapLines?: number }) => Promise<{ success: boolean; dataURL?: string; error?: string }>
 
   bleScan: (durationMs?: number) => Promise<ScannedDevice[]>
   bleScanStop: () => Promise<{ success: boolean }>

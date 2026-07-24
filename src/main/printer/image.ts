@@ -54,6 +54,67 @@ function packBits(pixels: Uint8Array, w: number, h: number): Uint8Array {
   return out
 }
 
+// --- Generate a preview PNG (exact processed image before 1bpp packing) -----
+export interface PreviewOptions {
+  topTrim?: number
+  feedTrim?: number
+  gapLines?: number
+}
+
+export async function generatePreviewPNG(
+  pngBuffer: Buffer,
+  opts: PreviewOptions = {}
+): Promise<Buffer> {
+  const { topTrim = 0, feedTrim = 0, gapLines = 0 } = opts
+
+  const meta = await sharp(pngBuffer).metadata()
+  const origH = meta.height!
+
+  const grayscale = await sharp(pngBuffer)
+    .grayscale()
+    .resize(PRINT_WIDTH, origH, { fit: 'fill' })
+    .raw()
+    .toBuffer()
+
+  const w = PRINT_WIDTH
+  let h = origH
+  let pixels = new Uint8Array(grayscale)
+
+  // Shift content UP (top trim)
+  if (topTrim > 0 && h > topTrim) {
+    const shifted = new Uint8Array(w * h)
+    shifted.set(pixels.subarray(topTrim * w))
+    shifted.fill(255, (h - topTrim) * w)
+    pixels = shifted
+  }
+
+  // Clamp near-white
+  clampNearWhite(pixels)
+
+  // Floyd-Steinberg dither
+  floydSteinbergDither(pixels, w, h)
+
+  // Add gap lines
+  if (gapLines > 0) {
+    const expanded = new Uint8Array(w * (h + gapLines))
+    expanded.fill(255)
+    expanded.set(pixels)
+    pixels = expanded
+    h += gapLines
+  }
+
+  // Trim bottom for feed compensation
+  if (feedTrim > 0 && h > feedTrim) {
+    h -= feedTrim
+    pixels = pixels.subarray(0, w * h)
+  }
+
+  // Convert the processed grayscale pixels back to a PNG for display
+  return sharp(Buffer.from(pixels), { raw: { width: w, height: h, channels: 1 } })
+    .png()
+    .toBuffer()
+}
+
 // --- Main image preparation -------------------------------------------------
 export interface PrepareOptions {
   topTrim?: number   // lines to shift content up

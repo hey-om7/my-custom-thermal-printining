@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Print
   printLabel: (base64PNG: string, options?: { gapLines?: number }) =>
     ipcRenderer.invoke('print-label', base64PNG, options),
+  previewPrintImage: (base64PNG: string, options?: { gapLines?: number }): Promise<{ success: boolean; dataURL?: string; error?: string }> =>
+    ipcRenderer.invoke('preview-print-image', base64PNG, options),
 
   // BLE Scan
   bleScan: (durationMs?: number): Promise<ScannedDevice[]> =>
