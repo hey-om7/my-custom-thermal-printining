@@ -264,9 +264,14 @@ ipcMain.handle(
       const base64Data = base64PNG.replace(/^data:image\/png;base64,/, '')
       const pngBuffer = Buffer.from(base64Data, 'base64')
 
+      // Skip trim when canvas is already sized to printable area (CatPrinter mode)
+      const sharp = (await import('sharp')).default
+      const meta = await sharp(pngBuffer).metadata()
+      const isNativeWidth = meta.width === 384
+
       const previewBuffer = await generatePreviewPNG(pngBuffer, {
-        topTrim: settings.topTrim,
-        feedTrim: settings.feedTrim,
+        topTrim: isNativeWidth ? 0 : settings.topTrim,
+        feedTrim: isNativeWidth ? 0 : settings.feedTrim,
         gapLines: Math.round(options?.gapLines ?? 0)
       })
 
@@ -294,11 +299,16 @@ ipcMain.handle('print-label', async (_event, base64PNG: string, options?: { gapL
     const base64Data = base64PNG.replace(/^data:image\/png;base64,/, '')
     const pngBuffer = Buffer.from(base64Data, 'base64')
 
+    // Skip trim when canvas is already sized to printable area (CatPrinter mode)
+    const sharp = (await import('sharp')).default
+    const meta = await sharp(pngBuffer).metadata()
+    const isNativeWidth = meta.width === 384
+
     const result = await printLabel(pngBuffer, {
       deviceUUID: settings.deviceUUID,
       intensity: 0xff,
-      topTrim: settings.topTrim,
-      feedTrim: settings.feedTrim,
+      topTrim: isNativeWidth ? 0 : settings.topTrim,
+      feedTrim: isNativeWidth ? 0 : settings.feedTrim,
       gapLines: Math.round(options?.gapLines ?? 0)
     })
 

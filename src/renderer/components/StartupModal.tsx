@@ -6,6 +6,7 @@ interface Props {
 }
 
 const PRESETS = [
+  { label: '🐱 CatPrinter', w: 48, h: 14, isCatPrinter: true },
   { label: '50 × 30 mm', w: 50, h: 30 },
   { label: '40 × 30 mm', w: 40, h: 30 },
   { label: '60 × 40 mm', w: 60, h: 40 },
@@ -21,6 +22,8 @@ export function StartupModal({ onConfirm }: Props) {
 
   const widthPx = mmToPx(widthMM)
   const heightPx = mmToPx(heightMM)
+
+  const isCatPrinterMode = widthMM === 48 && heightMM === 14
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-background relative">
@@ -48,6 +51,13 @@ export function StartupModal({ onConfirm }: Props) {
             </button>
           ))}
         </div>
+
+        {isCatPrinterMode && (
+          <div className="rounded-md bg-muted/60 border border-border px-3 py-2 mb-4 text-[11px] text-muted-foreground leading-relaxed">
+            <strong className="text-foreground">CatPrinter Mode:</strong> Canvas is sized to the exact printable area
+            (384px wide × {heightPx}px tall). What you design is exactly what prints — no cropping, no wasted space.
+          </div>
+        )}
 
         {/* Custom input */}
         <div className="flex gap-3 mb-4">
